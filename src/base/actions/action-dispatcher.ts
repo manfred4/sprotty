@@ -22,7 +22,7 @@ import { ICommandStack } from "../commands/command-stack";
 import { AnimationFrameSyncer } from "../animations/animation-frame-syncer";
 import { SetModelAction, SetModelCommand } from '../features/set-model';
 import { RedoAction, UndoAction } from "../../features/undo-redo/undo-redo";
-import { Action, isAction } from "./action";
+import { Action, isAction, isBlocking } from "./action";
 import { ActionHandlerRegistry } from "./action-handler";
 
 export interface IActionDispatcher {
@@ -77,8 +77,9 @@ export class ActionDispatcher implements IActionDispatcher {
                     promises.push(this.dispatch(result));
                 } else if (result !== undefined) {
                     promises.push(this.commandStack.execute(result));
-                    this.blockUntil = result.blockUntil;
                 }
+                if (isBlocking(result)) 
+                    this.blockUntil = result.blockUntil;
             }
             return Promise.all(promises) as Promise<any>;
         } else {

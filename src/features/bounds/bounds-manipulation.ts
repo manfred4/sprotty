@@ -16,7 +16,7 @@
 
 import { Bounds, Point } from "../../utils/geometry";
 import { SModelElement, SModelRoot, SModelRootSchema } from "../../base/model/smodel";
-import { Action } from "../../base/actions/action";
+import { Action, Blocking } from "../../base/actions/action";
 import { CommandExecutionContext, HiddenCommand, SystemCommand } from "../../base/commands/command";
 import { BoundsAware, isBoundsAware, Alignable } from './model';
 
@@ -130,7 +130,7 @@ export class SetBoundsCommand extends SystemCommand {
     }
 }
 
-export class RequestBoundsCommand extends HiddenCommand {
+export class RequestBoundsCommand extends HiddenCommand implements Blocking {
     static readonly KIND: string  = 'requestBounds';
 
     constructor(protected action: RequestBoundsAction) {

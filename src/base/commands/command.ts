@@ -40,12 +40,6 @@ import { TYPES } from "../types";
  * rather inherit from one of its abstract implementators.
  */
 export interface ICommand {
-    /**
-     * If this property is present, all following actions are blocked
-     * until the function returns `true`.
-     */
-    readonly blockUntil?: (action: Action) => boolean;
-
     execute(context: CommandExecutionContext): CommandResult
 
     undo(context: CommandExecutionContext): CommandResult

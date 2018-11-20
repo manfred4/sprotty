@@ -23,6 +23,18 @@ export interface Action {
     readonly kind: string
 }
 
-export function isAction(object?: any): object is Action {
-    return object !== undefined && object.hasOwnProperty('kind') && typeof(object['kind']) === 'string';
+export function isAction<T>(object?: T): object is  T & Action {
+    return object !== undefined && object.hasOwnProperty('kind') && typeof((object as any)['kind']) === 'string';
+}
+
+/**
+ * Interface for blocking actions and commands. On dispatch, if this property is present, all following 
+ * actions are queued until an action is dispatched that makes this function return `true`.
+ */
+export interface Blocking {
+    readonly blockUntil?: (action: Action) => boolean;
+}
+
+export function isBlocking<T>(object?: T): object is T & Blocking {
+    return object !== undefined && object.hasOwnProperty('blockUntil') && typeof((object as any)['blockUntil']) === 'function';
 }
