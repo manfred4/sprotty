@@ -72,14 +72,16 @@ export class ActionDispatcher implements IActionDispatcher {
         if (handlers.length > 0) {
             const promises: Promise<any>[] = [];
             for (const handler of handlers) {
+                if (isBlocking(action))
+                    this.blockUntil = action.blockUntil;
                 const result = handler.handle(action);
                 if (isAction(result)) {
                     promises.push(this.dispatch(result));
                 } else if (result !== undefined) {
+                    if (isBlocking(result))
+                        this.blockUntil = result.blockUntil;
                     promises.push(this.commandStack.execute(result));
                 }
-                if (isBlocking(result)) 
-                    this.blockUntil = result.blockUntil;
             }
             return Promise.all(promises) as Promise<any>;
         } else {

@@ -15,8 +15,8 @@
  ********************************************************************************/
 
 import { injectable } from "inversify";
-import { center, maxDistance, Point } from "../utils/geometry";
-import { SEdge } from "./sgraph";
+import { center, maxDistance, Point, euclideanDistance, linear } from "../../utils/geometry";
+import { Routable } from "./model";
 
 export interface RoutedPoint extends Point {
     kind: 'source' | 'target' | 'linear'
@@ -24,9 +24,26 @@ export interface RoutedPoint extends Point {
 }
 
 export interface IEdgeRouter {
-    route(edge: SEdge): RoutedPoint[]
-}
+    route(edge: Routable): RoutedPoint[]
 
+    /**
+     * Calculates a point on the edge
+     * 
+     * @param edge 
+     * @param t a value between 0 (sourceAnchor) and 1 (targetAnchor)
+     * @returns the point or undefined if t is out of bounds or it cannot be computed
+     */
+    pointAt(edge: Routable, t: number): Point | undefined
+
+    /**
+     * Calculates the derivative at a point on the edge
+     * 
+     * @param edge 
+     * @param t a value between 0 (sourceAnchor) and 1 (targetAnchor)
+     * @returns the point or undefined if t is out of bounds or it cannot be computed
+     */
+    derivativeAt(edge: Routable, t: number): Point | undefined
+}
 
 export interface LinearRouteOptions {
     minimalPointDistance: number;
@@ -34,7 +51,7 @@ export interface LinearRouteOptions {
 
 @injectable()
 export class LinearEdgeRouter implements IEdgeRouter {
-    route(edge: SEdge, options: LinearRouteOptions = { minimalPointDistance: 2 }): RoutedPoint[] {
+    route(edge: Routable, options: LinearRouteOptions = { minimalPointDistance: 2 }): RoutedPoint[] {
         const source = edge.source;
         const target = edge.target;
         if (source === undefined || target === undefined) {
@@ -72,5 +89,60 @@ export class LinearEdgeRouter implements IEdgeRouter {
         }
         result.push({ kind: 'target', x: targetAnchor.x, y: targetAnchor.y});
         return result;
+    }
+
+    pointAt(edge: Routable, t: number): Point | undefined {
+        const segments = this.calculateSegment(edge, t);
+        if (!segments)
+            return undefined
+        const { segmentStart, segmentEnd, lambda } = segments
+        return linear(segmentStart, segmentEnd, lambda);
+    }
+
+    derivativeAt(edge: Routable, t: number): Point | undefined {
+        const segments = this.calculateSegment(edge, t);
+        if (!segments)
+            return undefined
+        const { segmentStart, segmentEnd } = segments
+        return {
+            x: segmentEnd.x - segmentStart.x,
+            y: segmentEnd.y - segmentStart.y
+        }
+    }
+
+    protected calculateSegment(edge: Routable, t: number): { segmentStart: Point, segmentEnd: Point, lambda: number} | undefined {
+        if (t < 0 || t > 1)
+            return undefined;
+        const routedPoints = this.route(edge);
+        if (routedPoints.length < 2) 
+            return undefined;
+        const segmentLengths: number[] = [];
+        let totalLength = 0;
+        for (let i = 0; i < routedPoints.length - 1; ++i) {
+            segmentLengths[i] = euclideanDistance(routedPoints[i], routedPoints[i+1]);
+            totalLength += segmentLengths[i]
+        }
+        let currentLenght = 0;
+        const tAsLenght = t * totalLength;
+        for (let i = 0; i < routedPoints.length - 1; ++i) {
+            const newLength = currentLenght + segmentLengths[i];
+            // avoid division by (almost) zero
+            if(segmentLengths[i] > 1E-8) {
+                if (newLength >= tAsLenght) {
+                    const lambda = Math.max(0, (tAsLenght - currentLenght)) / segmentLengths[i];
+                    return { 
+                        segmentStart: routedPoints[i], 
+                        segmentEnd: routedPoints[i + 1],
+                        lambda
+                    }
+                } 
+            }
+            currentLenght = newLength
+        }
+        return { 
+            segmentEnd: routedPoints.pop()!,
+            segmentStart: routedPoints.pop()!,
+            lambda: 1
+        }
     }
 }

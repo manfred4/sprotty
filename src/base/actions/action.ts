@@ -28,11 +28,11 @@ export function isAction<T>(object?: T): object is  T & Action {
 }
 
 /**
- * Interface for blocking actions and commands. On dispatch, if this property is present, all following 
+ * Interface for blocking actions and commands. On dispatch, if this property is present, all following
  * actions are queued until an action is dispatched that makes this function return `true`.
  */
 export interface Blocking {
-    readonly blockUntil?: (action: Action) => boolean;
+    readonly blockUntil: (action: Action) => boolean;
 }
 
 export function isBlocking<T>(object?: T): object is T & Blocking {

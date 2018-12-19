@@ -300,6 +300,20 @@ export function almostEquals(a: number, b: number): boolean {
 }
 
 /**
+ * Calculates a linear combination of p0 and p1 using lambda, i.e.
+ *   (1-lambda) * p0 + lambda * p1
+ * @param p0 
+ * @param p1 
+ * @param lambda 
+ */
+export function linear(p0: Point, p1: Point, lambda: number): Point {
+    return {
+        x: (1 - lambda) * p0.x + lambda * p1.x,
+        y: (1 - lambda) * p0.y + lambda * p1.y
+    }
+}
+
+/**
  * A diamond or rhombus is a quadrilateral whose four sides all have the same length.
  * It consinsts of four points, a `topPoint`, `rightPoint`, `bottomPoint`, and a `leftPoint`,
  * which are connected by four lines -- the `topRightSideLight`, `topLeftSideLine`, `bottomRightSideLine`,

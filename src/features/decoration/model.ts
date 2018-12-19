@@ -31,9 +31,6 @@ export function isDecoration<T extends SModelElement>(e: T): e is T & Decoration
 export class SDecoration extends SShapeElement implements Decoration {
     hasFeature(feature: symbol) {
         return feature === decorationFeature
-            || feature === boundsFeature
-            || feature === hoverFeedbackFeature
-            || feature === popupFeature
             || super.hasFeature(feature);
     }
 }
@@ -42,6 +39,13 @@ export type SIssueSeverity = 'error' | 'warning' | 'info';
 
 export class SIssueMarker extends SDecoration {
     issues: SIssue[];
+
+    hasFeature(feature: symbol) {
+        return feature === boundsFeature
+            || feature === hoverFeedbackFeature
+            || feature === popupFeature
+            || super.hasFeature(feature);
+    }
 }
 
 export class SIssue {

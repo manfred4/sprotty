@@ -98,6 +98,9 @@ export * from "./features/move/move";
 export * from "./features/open/open";
 export * from "./features/open/model";
 
+export * from "./features/route/model";
+export * from "./features/route/routing";
+
 export * from "./features/select/model";
 export * from "./features/select/select";
 
