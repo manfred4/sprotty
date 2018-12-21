@@ -134,6 +134,7 @@ export { moveModule, boundsModule, fadeModule, selectModule, undoRedoModule, vie
 
 // ------------------ Graph ------------------
 
+export * from "./graph/edge-labels";
 export * from "./graph/sgraph-factory";
 export * from "./graph/sgraph";
 export * from "./graph/views";

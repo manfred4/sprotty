@@ -24,6 +24,7 @@ import {
     SCompartment, SEdge, SEdgeSchema, SGraph, SGraphSchema, SLabel, SLabelSchema, SNode, SNodeSchema, SPortSchema, SPort
 } from "./sgraph";
 import { SButton, SButtonSchema } from '../features/button/model';
+import { SEdgeLabelSchema, SEdgeLabel } from "./edge-labels";
 
 @injectable()
 export class SGraphFactory extends SModelFactory {
@@ -43,6 +44,8 @@ export class SGraphFactory extends SModelFactory {
             child = new SEdge();
         } else if (this.isLabelSchema(schema)) {
             child = new SLabel();
+        } else if (this.isEdgeLabelSchema(schema)) {
+            child = new SEdgeLabel();
         } else if (this.isCompartmentSchema(schema)) {
             child = new SCompartment();
         } else if (this.isButtonSchema(schema)) {
@@ -86,6 +89,10 @@ export class SGraphFactory extends SModelFactory {
 
     isLabelSchema(schema: SModelElementSchema): schema is SLabelSchema {
         return getBasicType(schema) === 'label';
+    }
+
+    isEdgeLabelSchema(schema: SModelElementSchema): schema is SEdgeLabelSchema {
+        return getBasicType(schema) === 'edgelabel';
     }
 
     isCompartmentSchema(schema: SModelElementSchema): schema is SLabelSchema {

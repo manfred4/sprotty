@@ -15,7 +15,7 @@
  ********************************************************************************/
 
 import { injectable } from 'inversify';
-import { DiagramState, SModelRootSchema, SGraphSchema, IStateAwareModelProvider, SEdgeSchema } from "../../../src";
+import { DiagramState, SModelRootSchema, SGraphSchema, IStateAwareModelProvider, SEdgeSchema, SEdgeLabelSchema } from "../../../src";
 
 @injectable()
 export class ModelProvider implements IStateAwareModelProvider {
@@ -165,16 +165,143 @@ export class ModelProvider implements IStateAwareModelProvider {
                 ]
             });
         }
+        const node2 = {
+            id: 'node2',
+            type: 'node:class',
+            expanded: false,
+            position: {
+                x: 500,
+                y: 200
+            },
+            layout: 'vbox',
+            children: [
+                {
+                    id: 'node2_header',
+                    type: 'comp:header',
+                    layout: 'hbox',
+                    children: [
+                        {
+                            id: 'node2_icon',
+                            type: 'icon',
+                            layout: 'stack',
+                            layoutOptions: {
+                                hAlign: 'center',
+                                resizeContainer: false
+                            },
+                            children: [
+                                {
+                                    id: 'node2_ticon',
+                                    type: 'label:icon',
+                                    text: 'C'
+                                },
+                            ]
+                        }, {
+                        id: 'node2_classname',
+                        type: 'label:heading',
+                        text: 'Baz'
+                    }, {
+                        id: 'node2_expand',
+                        type: 'button:expand'
+                    }]
+                }
+            ]
+        };
         const edge = {
             id: 'edge',
             type: 'edge:straight',
             sourceId: node0.id,
-            targetId: node1.id
+            targetId: node1.id,
+            children: [
+                <SEdgeLabelSchema> { 
+                    id: 'edge_label_top',
+                    type: 'edgelabel',
+                    text: 'top',
+                    placement:  {
+                        position: 0.3,
+                        side: 'top',
+                        rotate: false
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge_label_bottom',
+                    type: 'edgelabel',
+                    text: 'bottom',
+                    placement:  {
+                        position: 0.3,
+                        side: 'bottom',
+                        rotate: false
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge_label_left',
+                    type: 'edgelabel',
+                    text: 'left',
+                    placement:  {
+                        position: 0.6,
+                        side: 'left',
+                        rotate: false
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge_label_right',
+                    type: 'edgelabel',
+                    text: 'right',
+                    placement:  {
+                        position: 0.6,
+                        side: 'right',
+                        rotate: false
+                    }
+                }
+            ]
+        } as SEdgeSchema;
+        const edge1 = {
+            id: 'edge1',
+            type: 'edge:straight',
+            sourceId: node0.id,
+            targetId: node2.id,
+            children: [
+                <SEdgeLabelSchema> { 
+                    id: 'edge1_label_top',
+                    type: 'edgelabel',
+                    text: 'top',
+                    placement:  {
+                        position: 0,
+                        side: 'top',
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge1_label_bottom',
+                    type: 'edgelabel',
+                    text: 'bottom',
+                    placement:  {
+                        position: 0,
+                        side: 'bottom',
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge1_label_left',
+                    type: 'edgelabel',
+                    text: 'left',
+                    placement:  {
+                        position: 1,
+                        side: 'left'
+                    }
+                },
+                <SEdgeLabelSchema> { 
+                    id: 'edge1_label_right',
+                    type: 'edgelabel',
+                    text: 'right',
+                    placement:  {
+                        position: 1,
+                        side: 'right'
+                    }
+                }
+            ]
         } as SEdgeSchema;
         const graph: SGraphSchema = {
             id: 'graph',
             type: 'graph',
-            children: [node0, node1, edge],
+            children: [node0, node1, node2, edge, edge1 ],
             layoutOptions: {
                 hGap: 5,
                 hAlign: 'left',

@@ -29,7 +29,10 @@ export interface Routable extends SModelExtension {
     readonly target?: SConnectableElement;
     sourceId?: string,
     targetId?: string,
-    route(): RoutedPoint[]
+    route(): RoutedPoint[],
+    sourceAnchorCorrection?: number,
+    targetAnchorCorrection?: number,
+    parent: SParentElement
 }
 
 export function isRoutable<T extends SModelElement>(element: T): element is T & Routable {

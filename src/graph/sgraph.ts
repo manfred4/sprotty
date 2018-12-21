@@ -133,7 +133,7 @@ export class SEdge extends SChildElement implements Fadeable, Selectable, Routab
     opacity: number = 1;
     sourceAnchorCorrection?: number;
     targetAnchorCorrection?: number;
-    router?: IEdgeRouter;
+    _router?: IEdgeRouter;
 
     get source(): SConnectableElement | undefined {
         return this.index.getById(this.sourceId) as SConnectableElement;
@@ -143,9 +143,13 @@ export class SEdge extends SChildElement implements Fadeable, Selectable, Routab
         return this.index.getById(this.targetId) as SConnectableElement;
     }
 
+    get router() {
+        if (!this._router) 
+            this._router = new LinearEdgeRouter();
+        return this._router
+    }
+
     route(): RoutedPoint[] {
-        if (this.router === undefined)
-            this.router = new LinearEdgeRouter();
         const route = this.router.route(this);
         return filterEditModeHandles(route, this);
     }

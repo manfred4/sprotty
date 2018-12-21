@@ -20,7 +20,9 @@ import {
     ConsoleLogger, LogLevel, WebSocketDiagramServer, boundsModule, moveModule, selectModule, undoRedoModule,
     viewportModule, hoverModule, LocalModelSource, HtmlRootView, PreRenderedView, exportModule, expandModule,
     fadeModule, ExpandButtonView, buttonModule, edgeEditModule, SRoutingHandleView, SGraphFactory,
-    PreRenderedElement, HtmlRoot, SGraph, configureModelElement, SLabel, SCompartment, SEdge, SButton, SRoutingHandle
+    PreRenderedElement, HtmlRoot, SGraph, configureModelElement, SLabel, SCompartment, SEdge, SButton, SRoutingHandle,
+    EdgeLabelPlacementDecorator,
+    SEdgeLabel
 } from "../../../src";
 import { ClassNodeView, IconView} from "./views";
 import { PopupModelProvider } from "./popup";
@@ -38,11 +40,13 @@ export default (useWebsocket: boolean, containerId: string) => {
         rebind(TYPES.IModelFactory).to(SGraphFactory).inSingletonScope();
         bind(TYPES.IPopupModelProvider).to(PopupModelProvider);
         bind(TYPES.StateAwareModelProvider).to(ModelProvider);
+        bind(TYPES.IVNodeDecorator).to(EdgeLabelPlacementDecorator)
         const context = { bind, unbind, isBound, rebind };
         configureModelElement(context, 'graph', SGraph, SGraphView);
         configureModelElement(context, 'node:class', ClassNode, ClassNodeView);
         configureModelElement(context, 'label:heading', SLabel, SLabelView);
         configureModelElement(context, 'label:text', SLabel, SLabelView);
+        configureModelElement(context, 'edgelabel', SEdgeLabel, SLabelView);
         configureModelElement(context, 'comp:comp', SCompartment, SCompartmentView);
         configureModelElement(context, 'comp:header', SCompartment, SCompartmentView);
         configureModelElement(context, 'icon', Icon, IconView);

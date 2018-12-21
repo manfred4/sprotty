@@ -174,6 +174,7 @@ export interface Insets {
 
 /**
  * Enumeration of possible directions (left, right, up, down)
+ * @deprecated do we use this? We should rather use a string type
  */
 export enum Direction { left, right, up, down }
 
