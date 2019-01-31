@@ -52,7 +52,7 @@ export default (useWebsocket: boolean, containerId: string) => {
             baseDiv: containerId,
             popupOpenDelay: 500
         });
-    });
+    }); 
 
     const container = new Container();
     container.load(defaultModule, selectModule, moveModule, boundsModule, undoRedoModule,
