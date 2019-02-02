@@ -37,7 +37,7 @@ export default (useWebsocket: boolean, containerId: string) => {
         else
             bind(TYPES.ModelSource).to(LocalModelSource).inSingletonScope();
         rebind(TYPES.ILogger).to(ConsoleLogger).inSingletonScope();
-        rebind(TYPES.LogLevel).toConstantValue(LogLevel.log);
+        rebind(TYPES.LogLevel).toConstantValue(LogLevel.warn);
         bind(TYPES.IPopupModelProvider).to(PopupModelProvider);
         bind(TYPES.StateAwareModelProvider).to(ModelProvider);
         const context = { bind, unbind, isBound, rebind };

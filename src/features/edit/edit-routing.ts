@@ -16,36 +16,15 @@
 
 import { injectable, inject } from "inversify";
 import { Point } from "../../utils/geometry";
-import { canEditRouting, SRoutingHandle, RoutingHandleKind } from './model';
+import { canEditRouting, SRoutingHandle } from './model';
 import { Action } from "../../base/actions/action";
-import { Command, CommandExecutionContext, CommandResult } from "../../base/commands/command";
+import { Command, CommandExecutionContext, CommandResult, ICommand, MergeableCommand } from "../../base/commands/command";
 import { SModelElement, SModelRoot, SParentElement, SModelIndex } from '../../base/model/smodel';
 import { Animation } from '../../base/animations/animation';
 import { SDanglingAnchor } from "../../graph/sgraph";
 import { Routable, isRoutable } from "../routing/model";
 import { TYPES } from "../../base/types";
-
-export function createRoutingHandle(kind: RoutingHandleKind, parentId: string, index: number): SRoutingHandle {
-    const handle = new SRoutingHandle();
-    handle.type = kind === 'line' ? 'volatile-routing-point' : 'routing-point';
-    handle.kind = kind;
-    handle.pointIndex = index;
-    if (kind === 'target')
-        handle.id = parentId + '-target-anchor';
-    return handle;
-}
-
-export function createRoutingHandles(editTarget: SParentElement & Routable): void {
-    const rpCount = editTarget.routingPoints.length;
-    const targetId = editTarget.id;
-    editTarget.add(createRoutingHandle('source', targetId, -2));
-    editTarget.add(createRoutingHandle('line', targetId, -1));
-    for (let i = 0; i < rpCount; i++) {
-        editTarget.add(createRoutingHandle('junction', targetId, i));
-        editTarget.add(createRoutingHandle('line', targetId, i));
-    }
-    editTarget.add(createRoutingHandle('target', targetId, rpCount));
-}
+import { EdgeRouterRegistry, IEdgeRouter } from "../routing/routing";
 
 export class SwitchEditModeAction implements Action {
     kind = SwitchEditModeCommand.KIND;
@@ -57,6 +36,9 @@ export class SwitchEditModeAction implements Action {
 
 @injectable()
 export class SwitchEditModeCommand extends Command {
+
+    @inject(EdgeRouterRegistry) edgeRouterRegistry: EdgeRouterRegistry;
+
     static KIND: string = "switchEditMode";
 
     protected elementsToActivate: SModelElement[] = [];
@@ -112,9 +94,10 @@ export class SwitchEditModeCommand extends Command {
             }
         });
         this.elementsToActivate.forEach(element => {
-            if (canEditRouting(element) && element instanceof SParentElement)
-                createRoutingHandles(element);
-            else if (element instanceof SRoutingHandle)
+            if (canEditRouting(element) && element instanceof SParentElement) {
+                const router = this.edgeRouterRegistry.get(element.routerKind);
+                router.createRoutingHandles(element);
+            } else if (element instanceof SRoutingHandle)
                 element.editMode = true;
         });
         return context.root;
@@ -122,7 +105,8 @@ export class SwitchEditModeCommand extends Command {
 
     protected shouldRemoveHandle(handle: SRoutingHandle, parent: Routable): boolean {
         if (handle.kind === 'junction') {
-            const route = parent.route();
+            const router = this.edgeRouterRegistry.get(parent.routerKind);
+            const route = router.route(parent);
             return route.find(rp => rp.pointIndex === handle.pointIndex) === undefined;
         }
         return false;
@@ -140,9 +124,10 @@ export class SwitchEditModeCommand extends Command {
                 element.editMode = false;
         });
         this.elementsToDeactivate.forEach(element => {
-            if (canEditRouting(element) && element instanceof SParentElement)
-                createRoutingHandles(element);
-            else if (element instanceof SRoutingHandle)
+            if (canEditRouting(element) && element instanceof SParentElement) {
+                const router = this.edgeRouterRegistry.get(element.routerKind);
+                router.createRoutingHandles(element);
+            } else if (element instanceof SRoutingHandle)
                 element.editMode = true;
         });
         return context.root;
@@ -161,8 +146,9 @@ export interface HandleMove {
 
 export interface ResolvedHandleMove {
     elementId: string
-    element: SRoutingHandle
-    parent: SParentElement
+    handle: SRoutingHandle
+    edge: SParentElement & Routable
+    router: IEdgeRouter
     fromPosition?: Point
     toPosition: Point
 }
@@ -177,8 +163,10 @@ export class MoveRoutingHandleAction implements Action {
 }
 
 @injectable()
-export class MoveRoutingHandleCommand extends Command {
+export class MoveRoutingHandleCommand extends MergeableCommand {
     static KIND: string = 'moveHandle';
+
+    @inject(EdgeRouterRegistry) edgeRouterRegistry: EdgeRouterRegistry;
 
     resolvedMoves: Map<string, ResolvedHandleMove> = new Map;
     originalRoutingPoints: Map<string, Point[]> = new Map;
@@ -194,7 +182,7 @@ export class MoveRoutingHandleCommand extends Command {
                 const resolvedMove = this.resolve(move, model.index);
                 if (resolvedMove !== undefined) {
                     this.resolvedMoves.set(resolvedMove.elementId, resolvedMove);
-                    const parent = resolvedMove.parent;
+                    const parent = resolvedMove.edge;
                     if (isRoutable(parent))
                         this.originalRoutingPoints.set(parent.id, parent.routingPoints.slice());
                 }
@@ -209,30 +197,33 @@ export class MoveRoutingHandleCommand extends Command {
 
     protected resolve(move: HandleMove, index: SModelIndex<SModelElement>): ResolvedHandleMove | undefined {
         const element = index.getById(move.elementId);
-        if (element instanceof SRoutingHandle) {
-            if (isRoutable(element.parent)) {
-                if (element.kind === 'source' && !(element.parent.source instanceof SDanglingAnchor)) {
-                    const anchor = new SDanglingAnchor();
-                    anchor.id = element.parent.id + '_dangling-source';
-                    anchor.original = element.parent.source;
-                    anchor.position = move.toPosition;
-                    element.root.add(anchor);
-                    element.danglingAnchor = anchor;
-                    element.parent.sourceId = anchor.id;
-                } else if (element.kind === 'target' && !(element.parent.target instanceof SDanglingAnchor)) {
-                    const anchor = new SDanglingAnchor();
-                    anchor.id = element.parent.id + '_dangling-target';
-                    anchor.original = element.parent.target;
-                    anchor.position = move.toPosition;
-                    element.root.add(anchor);
-                    element.danglingAnchor = anchor;
-                    element.parent.targetId = anchor.id;
-                }
+        if (element instanceof SRoutingHandle && isRoutable(element.parent)) {
+            const edge = element.parent;
+            const router = this.edgeRouterRegistry.get(edge.routerKind);
+            if (element.kind === 'source' && !(edge.source instanceof SDanglingAnchor)) {
+                const anchor = new SDanglingAnchor();
+                anchor.id = edge.id + '_dangling-source';
+                anchor.original = edge.source;
+                anchor.position = move.toPosition;
+                element.root.add(anchor);
+                element.danglingAnchor = anchor;
+                edge.sourceId = anchor.id;
+                router.cleanupRoutingPoints(edge, edge.routingPoints, true);
+            } else if (element.kind === 'target' && !(edge.target instanceof SDanglingAnchor)) {
+                const anchor = new SDanglingAnchor();
+                anchor.id = edge.id + '_dangling-target';
+                anchor.original = edge.target;
+                anchor.position = move.toPosition;
+                element.root.add(anchor);
+                element.danglingAnchor = anchor;
+                edge.targetId = anchor.id;
+                router.cleanupRoutingPoints(edge, edge.routingPoints, true);
             }
             return {
                 elementId: move.elementId,
-                element: element,
-                parent: element.parent,
+                handle: element,
+                edge: edge,
+                router: router,
                 fromPosition: move.fromPosition,
                 toPosition: move.toPosition
             };
@@ -241,62 +232,51 @@ export class MoveRoutingHandleCommand extends Command {
     }
 
     protected doMove(context: CommandExecutionContext): SModelRoot {
+        const edgesToMoves = new Map<Routable, ResolvedHandleMove[]>();
         this.resolvedMoves.forEach(res => {
-            const handle = res.element;
-            const parent = res.parent;
-            if (isRoutable(parent)) {
-                if (handle.danglingAnchor) {
-                    handle.danglingAnchor.position = res.toPosition;
+            if (isRoutable(res.edge)) {
+                if (res.handle.danglingAnchor) {
+                    res.handle.danglingAnchor.position = res.toPosition;
                     return;
                 }
-                const points = parent.routingPoints;
-                let index = handle.pointIndex;
-                if (handle.kind === 'line') {
-                    // Upgrade to a proper routing point
-                    handle.kind = 'junction';
-                    handle.type = 'routing-point';
-                    points.splice(index + 1, 0, res.fromPosition || points[Math.max(index, 0)]);
-                    parent.children.forEach(child => {
-                        if (child instanceof SRoutingHandle && (child === handle || child.pointIndex > index))
-                            child.pointIndex++;
-                    });
-                    parent.add(createRoutingHandle('line', parent.id, index));
-                    parent.add(createRoutingHandle('line', parent.id, index + 1));
-                    index++;
+                let movesByEdge = edgesToMoves.get(res.edge);
+                if (!movesByEdge) {
+                    movesByEdge = [];
+                    edgesToMoves.set(res.edge, movesByEdge);
                 }
-                if (index >= 0 && index < points.length) {
-                    points[index] = res.toPosition;
-                }
+                movesByEdge.push(res);
             }
         });
+        edgesToMoves.forEach((moves, edge) => moves[0].router.applyHandleMoves(edge, moves));
         return context.root;
     }
 
     undo(context: CommandExecutionContext): CommandResult {
-        if (this.action.animate) {
-            return new MoveHandlesAnimation(context.root, this.resolvedMoves, this.originalRoutingPoints, context, true).start();
-        } else {
-            this.resolvedMoves.forEach(res => {
-                const parent = res.parent;
-                const points = this.originalRoutingPoints.get(parent.id);
-                if (points !== undefined && isRoutable(parent)) {
-                    parent.routingPoints = points;
-                    parent.removeAll(e => e instanceof SRoutingHandle);
-                    createRoutingHandles(parent);
-                }
-            });
-            return context.root;
-        }
+        return new MoveHandlesAnimation(context.root, this.resolvedMoves, this.originalRoutingPoints, context, true).start();
     }
 
     redo(context: CommandExecutionContext): CommandResult {
-        if (this.action.animate) {
-            return new MoveHandlesAnimation(context.root, this.resolvedMoves, this.originalRoutingPoints, context, false).start();
-        } else {
-            return this.doMove(context);
-        }
+        return new MoveHandlesAnimation(context.root, this.resolvedMoves, this.originalRoutingPoints, context, false).start();
     }
 
+    merge(command: ICommand, context: CommandExecutionContext) {
+        if (!this.action.animate && command instanceof MoveRoutingHandleCommand) {
+            command.action.moves.forEach(
+                otherMove => {
+                    const existingMove = this.resolvedMoves.get(otherMove.elementId);
+                    if (existingMove) {
+                        existingMove.toPosition = otherMove.toPosition;
+                    } else {
+                        const resolvedMove = this.resolve(otherMove, context.root.index);
+                        if (resolvedMove)
+                            this.resolvedMoves.set(resolvedMove.elementId, resolvedMove);
+                    }
+                }
+            );
+            return true;
+        }
+        return false;
+    }
 }
 
 export class MoveHandlesAnimation extends Animation {
@@ -311,19 +291,19 @@ export class MoveHandlesAnimation extends Animation {
 
     tween(t: number) {
         this.handleMoves.forEach(handleMove => {
-            const parent = handleMove.parent;
+            const parent = handleMove.edge;
             if (isRoutable(parent) && handleMove.fromPosition !== undefined) {
                 if (this.reverse && t === 1) {
                     const revPoints = this.originalRoutingPoints.get(parent.id);
                     if (revPoints !== undefined) {
                         parent.routingPoints = revPoints;
                         parent.removeAll(e => e instanceof SRoutingHandle);
-                        createRoutingHandles(parent);
+                        handleMove.router.createRoutingHandles(parent);
                         return;
                     }
                 }
                 const points = parent.routingPoints;
-                const index = handleMove.element.pointIndex;
+                const index = handleMove.handle.pointIndex;
                 if (index >= 0 && index < points.length) {
                     if (this.reverse) {
                         points[index] = {

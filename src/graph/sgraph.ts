@@ -15,20 +15,19 @@
  ********************************************************************************/
 
 import { SChildElement, SModelElement, SModelElementSchema, SModelIndex, SModelRootSchema } from '../base/model/smodel';
-import { Alignable, alignFeature, boundsFeature, layoutableChildFeature, layoutContainerFeature, ModelLayoutOptions,
-    SShapeElement, SShapeElementSchema, BoundsAware } from '../features/bounds/model';
+import { Alignable, alignFeature, BoundsAware, boundsFeature, layoutableChildFeature, layoutContainerFeature,
+    ModelLayoutOptions, SShapeElement, SShapeElementSchema } from '../features/bounds/model';
+import { edgeLayoutFeature } from '../features/edge-layout/model';
 import { deletableFeature } from '../features/edit/delete';
-import { editFeature, filterEditModeHandles } from '../features/edit/model';
+import { editFeature } from '../features/edit/model';
 import { Fadeable, fadeFeature } from '../features/fade/model';
 import { Hoverable, hoverFeedbackFeature, popupFeature } from '../features/hover/model';
 import { moveFeature } from '../features/move/model';
-import { Routable, SConnectableElement, connectableFeature } from '../features/routing/model';
+import { connectableFeature, Routable, SConnectableElement } from '../features/routing/model';
 import { Selectable, selectFeature } from '../features/select/model';
 import { ViewportRootElement } from '../features/viewport/viewport-root';
-import { Bounds, ORIGIN_POINT, Point, EMPTY_BOUNDS, combine } from '../utils/geometry';
+import { Bounds, combine, EMPTY_BOUNDS, ORIGIN_POINT, Point } from '../utils/geometry';
 import { FluentIterable, FluentIterableImpl } from '../utils/iterable';
-import { IEdgeRouter, LinearEdgeRouter, RoutedPoint } from '../features/routing/routing';
-import { edgeLayoutFeature } from '../features/edge-layout/model';
 
 /**
  * Serializable schema for graph-like models.
@@ -114,6 +113,7 @@ export class SPort extends SConnectableElement implements Selectable, Fadeable, 
 export interface SEdgeSchema extends SModelElementSchema {
     sourceId: string
     targetId: string
+    routerKind?: string;
     routingPoints?: Point[]
     selected?: boolean
     hoverFeedback?: boolean
@@ -128,13 +128,13 @@ export interface SEdgeSchema extends SModelElementSchema {
 export class SEdge extends SChildElement implements Fadeable, Selectable, Routable, Hoverable, BoundsAware {
     sourceId: string;
     targetId: string;
+    routerKind?: string;
     routingPoints: Point[] = [];
     selected: boolean = false;
     hoverFeedback: boolean = false;
     opacity: number = 1;
     sourceAnchorCorrection?: number;
     targetAnchorCorrection?: number;
-    _router?: IEdgeRouter;
 
     get source(): SConnectableElement | undefined {
         return this.index.getById(this.sourceId) as SConnectableElement;
@@ -142,17 +142,6 @@ export class SEdge extends SChildElement implements Fadeable, Selectable, Routab
 
     get target(): SConnectableElement | undefined {
         return this.index.getById(this.targetId) as SConnectableElement;
-    }
-
-    get router() {
-        if (!this._router)
-            this._router = new LinearEdgeRouter();
-        return this._router;
-    }
-
-    route(): RoutedPoint[] {
-        const route = this.router.route(this);
-        return filterEditModeHandles(route, this);
     }
 
     get bounds(): Bounds {

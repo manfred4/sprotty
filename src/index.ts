@@ -108,6 +108,8 @@ export * from "./features/open/model";
 
 export * from "./features/routing/model";
 export * from "./features/routing/routing";
+export * from "./features/routing/manhattan-edge-router";
+export * from "./features/routing/linear-edge-router";
 
 export * from "./features/select/model";
 export * from "./features/select/select";

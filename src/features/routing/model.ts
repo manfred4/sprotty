@@ -14,30 +14,31 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { SModelElement, SParentElement } from '../../base/model/smodel';
+import { SModelElement, SParentElement, SChildElement } from '../../base/model/smodel';
 import { SModelExtension } from '../../base/model/smodel-extension';
 import { translatePoint } from '../../base/model/smodel-utils';
-import { RoutedPoint } from './routing';
 import { SEdge, SGraphIndex } from '../../graph/sgraph';
 import { center, Point } from '../../utils/geometry';
 import { FluentIterable } from '../../utils/iterable';
 import { SShapeElement } from '../bounds/model';
 
 export interface Routable extends SModelExtension {
-    routingPoints: Point[];
-    readonly source?: SConnectableElement;
-    readonly target?: SConnectableElement;
-    sourceId?: string,
-    targetId?: string,
-    route(): RoutedPoint[],
-    sourceAnchorCorrection?: number,
-    targetAnchorCorrection?: number,
+    routerKind?: string
+    routingPoints: Point[]
+    readonly source?: SConnectableElement
+    readonly target?: SConnectableElement
+    sourceId?: string
+    targetId?: string
+    sourceAnchorCorrection?: number
+    targetAnchorCorrection?: number
     parent: SParentElement
+    children: ReadonlyArray<SChildElement>
+    add(child: SChildElement): void
+    remove(child: SChildElement): void
 }
 
 export function isRoutable<T extends SModelElement>(element: T): element is T & Routable {
-    return (element as any).routingPoints !== undefined
-        && typeof((element as any).route) === 'function';
+    return (element as any).routingPoints !== undefined;
 }
 
 export const connectableFeature = Symbol('connectableFeature');

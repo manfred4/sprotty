@@ -17,9 +17,11 @@
 import { ContainerModule } from "inversify";
 import { TYPES } from "../base/types";
 import { SGraphFactory } from "./sgraph-factory";
+import { EdgeRouterRegistry } from "../features/routing/routing";
 
 const graphModule = new ContainerModule((bind, unbind, isBound, rebind) => {
     rebind(TYPES.IModelFactory).to(SGraphFactory).inSingletonScope();
+    bind(EdgeRouterRegistry).toSelf().inSingletonScope();
 });
 
 export default graphModule;

@@ -15,7 +15,7 @@
  ********************************************************************************/
 
 import { injectable, inject } from "inversify";
-import { Point, centerOfLine } from '../../utils/geometry';
+import { Point } from '../../utils/geometry';
 import { SChildElement } from '../../base/model/smodel';
 import { VNode } from "snabbdom/vnode";
 import { SModelElement, SModelIndex, SModelRoot } from "../../base/model/smodel";
@@ -32,10 +32,9 @@ import { isAlignable, findChildrenAtPosition } from "../bounds/model";
 import { SRoutingHandle } from '../edit/model';
 import { MoveRoutingHandleAction, HandleMove, SwitchEditModeAction } from "../edit/edit-routing";
 import { isMoveable, Locateable, isLocateable } from './model';
-import { RoutedPoint } from "../routing/routing";
+import { EdgeRouterRegistry } from "../routing/routing";
 import { isCreatingOnDrag } from "../edit/create-on-drag";
 import { SelectAllAction, SelectAction } from "../select/select";
-import { SDanglingAnchor } from "../../graph/sgraph";
 import { ReconnectAction } from "../edit/reconnect";
 import { DeleteElementAction } from "../edit/delete";
 import { isConnectable, isRoutable, Routable } from "../routing/model";
@@ -72,6 +71,8 @@ export interface ResolvedElementRoute {
 @injectable()
 export class MoveCommand extends MergeableCommand {
     static readonly KIND = 'move';
+
+    @inject(EdgeRouterRegistry) edgeRouterRegistry: EdgeRouterRegistry;
 
     resolvedMoves: Map<string, ResolvedElementMove> = new Map;
     resolvedRoutes: Map<string, ResolvedElementRoute> = new Map;
@@ -130,6 +131,20 @@ export class MoveCommand extends MergeableCommand {
                         y: rp.y + deltaY
                     }))
                 });
+            } else {
+                if (element.source && element.target) {
+                    const router = this.edgeRouterRegistry.get(element.routerKind);
+                    const routingPointsCopy = element.routingPoints.slice();
+                    router.cleanupRoutingPoints(element, routingPointsCopy, true,
+                        sourceMove ? sourceMove.toPosition : element.source.position,
+                        targetMove ? targetMove.toPosition : element.target.position);
+                    this.resolvedRoutes.set(element.id, {
+                        elementId: element.id,
+                        element,
+                        fromRoute: element.routingPoints,
+                        toRoute: routingPointsCopy
+                    });
+                }
             }
         }
     }
@@ -229,6 +244,8 @@ export const edgeInProgressID = 'edge-in-progress';
 
 export class MoveMouseListener extends MouseListener {
 
+    @inject(EdgeRouterRegistry) edgeRouterRegistry: EdgeRouterRegistry;
+
     hasDragged = false;
     lastDragPosition: Point | undefined;
 
@@ -309,50 +326,10 @@ export class MoveMouseListener extends MouseListener {
 
     protected getHandlePosition(handle: SRoutingHandle): Point | undefined {
         const parent = handle.parent;
-        if (!isRoutable(parent)) {
+        if (!isRoutable(parent))
             return undefined;
-        }
-        switch (handle.kind) {
-            case 'source':
-                if (parent.source instanceof SDanglingAnchor)
-                    return parent.source.position;
-                else
-                    return parent.route()[0];
-            case 'target':
-                if (parent.target instanceof SDanglingAnchor)
-                    return parent.target.position;
-                else {
-                    const route = parent.route();
-                    return route[route.length - 1];
-                }
-            case 'line': {
-                const getIndex = (rp: RoutedPoint) => {
-                    if (rp.pointIndex !== undefined)
-                        return rp.pointIndex;
-                    else if (rp.kind === 'target')
-                        return parent.routingPoints.length;
-                    else
-                        return -1;
-                };
-                const route = parent.route();
-                let rp1, rp2: RoutedPoint | undefined;
-                for (const rp of route) {
-                    const i = getIndex(rp);
-                    if (i <= handle.pointIndex && (rp1 === undefined || i > getIndex(rp1)))
-                        rp1 = rp;
-                    if (i > handle.pointIndex && (rp2 === undefined || i < getIndex(rp2)))
-                        rp2 = rp;
-                }
-                if (rp1 !== undefined && rp2 !== undefined) {
-                    return centerOfLine(rp1, rp2);
-                }
-                return undefined;
-            }
-            default:
-                if (handle.pointIndex >= 0)
-                    return parent.routingPoints[handle.pointIndex];
-                return undefined;
-        }
+        const router = this.edgeRouterRegistry.get(parent.routerKind);
+        return router.getHandlePosition(parent, handle);
     }
 
     mouseEnter(target: SModelElement, event: MouseEvent): Action[] {

@@ -16,11 +16,11 @@
 
 import "mocha";
 import { expect } from "chai";
-import { createRoutingHandles } from '../features/edit/edit-routing';
 import { SRoutingHandle } from '../features/edit/model';
 import { RectangularNode, RectangularPort } from '../lib/model';
 import { SNode, SEdge, SGraph, SPort } from './sgraph';
 import { RoutedPoint } from "../features/routing/routing";
+import { PolylineEdgeRouter } from "../features/routing/polyline-edge-router";
 
 describe('SEdge', () => {
     const graph = new SGraph();
@@ -39,10 +39,11 @@ describe('SEdge', () => {
     edge.sourceId = 'node0';
     edge.targetId = 'node1';
     graph.add(edge);
+    const router = new PolylineEdgeRouter();
 
     it('computes a simple route', () => {
         edge.routingPoints = [{ x: 14, y: 12 }, { x: 16, y: 18 }];
-        const route = edge.route();
+        const route = router.route(edge);
         expect(route).to.deep.equal(<RoutedPoint[]>[
             { x: 10, y: 10, kind: 'source' },
             { x: 14, y: 12, kind: 'linear', pointIndex: 0 },
@@ -53,8 +54,8 @@ describe('SEdge', () => {
 
     it('skips a routing handle that is dragged for removal', () => {
         edge.routingPoints = [{ x: 12, y: 15 }, { x: 15, y: 15 }, { x: 18, y: 15 }];
-        createRoutingHandles(edge);
-        const route1 = edge.route();
+        router.createRoutingHandles(edge);
+        const route1 = router.route(edge);
         expect(route1).to.deep.equal(<RoutedPoint[]>[
             { x: 10, y: 10, kind: 'source' },
             { x: 12, y: 15, kind: 'linear', pointIndex: 0 },
@@ -64,7 +65,7 @@ describe('SEdge', () => {
         ]);
         const handle1 = edge.children.find(child => (child as SRoutingHandle).pointIndex === 1) as SRoutingHandle;
         handle1.editMode = true;
-        const route2 = edge.route();
+        const route2 = router.route(edge);
         expect(route2).to.deep.equal(<RoutedPoint[]>[
             { x: 10, y: 10, kind: 'source' },
             { x: 12, y: 15, kind: 'linear', pointIndex: 0 },

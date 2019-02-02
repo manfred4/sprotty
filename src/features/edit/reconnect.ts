@@ -20,6 +20,8 @@ import { Action } from "../../base/actions/action";
 import { Command, CommandExecutionContext, CommandResult } from "../../base/commands/command";
 import { injectable, inject } from "inversify";
 import { TYPES } from "../../base/types";
+import { Point } from "../../utils/geometry";
+import { EdgeRouterRegistry } from "../routing/routing";
 
 export class ReconnectAction implements Action {
     readonly kind =  ReconnectCommand.KIND;
@@ -33,11 +35,14 @@ export class ReconnectAction implements Action {
 export class ReconnectCommand extends Command {
     static KIND = 'reconnect';
 
+    @inject(EdgeRouterRegistry) edgeRouterRegistry: EdgeRouterRegistry;
+
     routable?: Routable;
     newSource?: SModelElement;
     newTarget?: SModelElement;
     oldSource?: SModelElement;
     oldTarget?: SModelElement;
+    oldRoutingPoints: Point[];
 
     constructor(@inject(TYPES.Action)readonly action: ReconnectAction) {
         super();
@@ -61,6 +66,7 @@ export class ReconnectCommand extends Command {
                 this.newTarget = context.root.index.getById(this.action.newTargetId);
                 this.oldTarget = routable.target;
             }
+            this.oldRoutingPoints = routable.routingPoints;
         }
     }
 
@@ -70,6 +76,9 @@ export class ReconnectCommand extends Command {
                 this.routable.sourceId = this.newSource.id;
             if (this.newTarget)
                 this.routable.targetId = this.newTarget.id;
+            const router = this.edgeRouterRegistry.get(this.routable.routerKind);
+            this.routable.routingPoints.splice(0, this.routable.routingPoints.length);
+            router.cleanupRoutingPoints(this.routable, this.routable.routingPoints, true);
         }
     }
 
@@ -79,6 +88,7 @@ export class ReconnectCommand extends Command {
                 this.routable.sourceId = this.oldSource.id;
             if (this.oldTarget)
                 this.routable.targetId = this.oldTarget.id;
+            this.routable.routingPoints = this.oldRoutingPoints;
         }
         return context.root;
     }

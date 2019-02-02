@@ -50,6 +50,40 @@ export class ProviderRegistry<T, U> {
         throw new Error('Unknown registry key: ' + key);
     }
 }
+@injectable()
+export class SemiProviderRegistry<T, U> {
+    protected elements: Map<string, (u: U) => T> = new Map;
+
+    register(key: string, cstr: (u: U) => T) {
+        if (key === undefined)
+            throw new Error('Key is undefined');
+        if (this.hasKey(key))
+            throw new Error('Key is already registered: ' + key);
+        this.elements.set(key, cstr);
+    }
+
+    deregister(key: string) {
+        if (key === undefined)
+            throw new Error('Key is undefined');
+        this.elements.delete(key);
+    }
+
+    hasKey(key: string): boolean {
+        return this.elements.has(key);
+    }
+
+    get(key: string, arg: U): T {
+        const existingCstr = this.elements.get(key);
+        if (existingCstr)
+            return existingCstr(arg);
+        else
+            return this.missing(key, arg);
+    }
+
+    protected missing(key: string, arg: U): T | never {
+        throw new Error('Unknown registry key: ' + key);
+    }
+}
 
 @injectable()
 export class FactoryRegistry<T, U> {
