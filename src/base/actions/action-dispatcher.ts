@@ -14,7 +14,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
 
-import { inject, injectable } from "inversify";
+import { inject, injectable, postConstruct } from "inversify";
 import { TYPES } from "../types";
 import { ILogger } from "../../utils/logging";
 import { EMPTY_ROOT } from '../model/smodel-factory';
@@ -37,13 +37,16 @@ export interface IActionDispatcher {
 @injectable()
 export class ActionDispatcher implements IActionDispatcher {
 
+    @inject(TYPES.ActionHandlerRegistry) protected actionHandlerRegistry: ActionHandlerRegistry;
+    @inject(TYPES.ICommandStack) protected commandStack: ICommandStack;
+    @inject(TYPES.ILogger) protected logger: ILogger;
+    @inject(TYPES.AnimationFrameSyncer) protected syncer: AnimationFrameSyncer;
+
     protected blockUntil?: (action: Action) => boolean;
     protected postponedActions: PostponedAction[] = [];
 
-    constructor(@inject(TYPES.ActionHandlerRegistry) protected actionHandlerRegistry: ActionHandlerRegistry,
-                @inject(TYPES.ICommandStack) protected commandStack: ICommandStack,
-                @inject(TYPES.ILogger) protected logger: ILogger,
-                @inject(TYPES.AnimationFrameSyncer) protected syncer: AnimationFrameSyncer) {
+    @postConstruct()
+    initialize() {
         this.postponedActions = [];
         const initialCommand = new SetModelCommand(new SetModelAction(EMPTY_ROOT));
         this.blockUntil = initialCommand.blockUntil;
